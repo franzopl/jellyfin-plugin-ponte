@@ -8,6 +8,18 @@ and others.
 It is the reverse of [Gelato](https://github.com/lostb1t/Gelato), which brings Stremio addons into
 Jellyfin. The two work together: Ponte never serves the items Gelato creates.
 
+## Quick start
+
+1. **Add the repository** in Jellyfin (Dashboard → Plugins → Repositories):
+   `https://raw.githubusercontent.com/franzopl/jellyfin-plugin-ponte/main/manifest.json`
+2. **Install Ponte** from the catalog and restart Jellyfin.
+3. **Copy your addon link** from Dashboard → Plugins → Ponte (other users: `https://<your-jellyfin>/ponte/link`).
+4. **Add it to your client**: paste it into Stremio, Nuvio or Omni, or in AIOStreams add it as a
+   *Custom* addon with *Library addon* on.
+
+Tip: if the client or AIOStreams is on the same network as Jellyfin, use Jellyfin's LAN address
+and leave *Public URL* empty so playback stays local.
+
 ## Features
 
 - **Catalogs**: one per movie and show library, plus *Recently added* and *Continue watching*,
