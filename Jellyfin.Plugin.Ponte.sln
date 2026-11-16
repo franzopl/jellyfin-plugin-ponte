@@ -1,0 +1,56 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.Ponte", "src\Jellyfin.Plugin.Ponte\Jellyfin.Plugin.Ponte.csproj", "{33A225F6-F1C2-44D8-8704-08DF080D1363}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.Ponte.Tests", "tests\Jellyfin.Plugin.Ponte.Tests\Jellyfin.Plugin.Ponte.Tests.csproj", "{5656307E-5F46-4697-9200-8F474BB94A55}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Debug|x64.Build.0 = Debug|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Debug|x86.Build.0 = Debug|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Release|x64.ActiveCfg = Release|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Release|x64.Build.0 = Release|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Release|x86.ActiveCfg = Release|Any CPU
+		{33A225F6-F1C2-44D8-8704-08DF080D1363}.Release|x86.Build.0 = Release|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Debug|x64.Build.0 = Debug|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Debug|x86.Build.0 = Debug|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Release|x64.ActiveCfg = Release|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Release|x64.Build.0 = Release|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Release|x86.ActiveCfg = Release|Any CPU
+		{5656307E-5F46-4697-9200-8F474BB94A55}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{33A225F6-F1C2-44D8-8704-08DF080D1363} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{5656307E-5F46-4697-9200-8F474BB94A55} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+	EndGlobalSection
+EndGlobal

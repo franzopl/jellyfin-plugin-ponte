@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Ponte</title>
+<style>
+  :root { color-scheme: dark; --bg: #101010; --card: #1c1c1c; --line: #2c2c2c; --text: #eee; --muted: #9a9a9a; --accent: #00a4dc; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 24px 16px; }
+  main { width: 100%; max-width: 520px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: .5px; }
+  p { margin: 0 0 16px; color: var(--muted); }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: #141414; color: var(--text); font: inherit; }
+  input[readonly] { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  button, a.btn { flex: 1 1 auto; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); background: #262626; color: var(--text);
+                  font: inherit; cursor: pointer; text-align: center; text-decoration: none; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .error { color: #ff6b6b; margin-top: 12px; }
+  .note { font-size: 13px; margin-top: 18px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ponte</h1>
+  <p id="intro">Sign in with your Jellyfin account to get your addon link for Stremio, Nuvio, AIOStreams and other addon clients.</p>
+
+  <form id="login" hidden>
+    <label for="user">Username</label>
+    <input id="user" autocomplete="username" required>
+    <label for="pass">Password</label>
+    <input id="pass" type="password" autocomplete="current-password">
+    <div class="row"><button class="primary" type="submit">Sign in</button></div>
+  </form>
+
+  <section id="result" hidden>
+    <label for="manifest">Addon link for <strong id="who"></strong></label>
+    <input id="manifest" readonly>
+    <div class="row">
+      <button class="primary" id="copy" type="button">Copy link</button>
+      <a class="btn" id="install" href="#">Open in Stremio</a>
+      <button id="reset" type="button">Reset link</button>
+    </div>
+    <p class="note">Paste the link into your client's addon list. Keep it private: anyone with it can browse and play what your account can. Resetting makes a new link and turns the old one off.</p>
+  </section>
+
+  <div class="error" id="error" hidden></div>
+</main>
+<script>
+(function () {
+  // The page is served at <server>/ponte/link; everything else is relative to <server>.
+  var base = location.pathname.replace(/\/ponte\/link\/?$/i, '');
+  var clientHeader = 'MediaBrowser Client="Ponte", Device="Browser", DeviceId="ponte-link-page", Version="1.0"';
+  var token = null;
+  var ownSession = false;
+
+  function $(id) { return document.getElementById(id); }
+  function pick(o, name) { return o[name] !== undefined ? o[name] : o[name.charAt(0).toLowerCase() + name.slice(1)]; }
+  function showError(message) { $('error').textContent = message; $('error').hidden = !message; }
+
+  function api(method, path, accessToken, body) {
+    var headers = { 'Authorization': clientHeader + (accessToken ? ', Token="' + accessToken + '"' : '') };
+    if (body) { headers['Content-Type'] = 'application/json'; }
+    return fetch(base + path, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) {
+        if (!r.ok) { var e = new Error(String(r.status)); e.status = r.status; throw e; }
+        return r.status === 204 ? null : r.json();
+      });
+  }
+
+  function show(link) {
+    $('who').textContent = pick(link, 'UserName');
+    $('manifest').value = pick(link, 'ManifestUrl');
+    $('install').href = pick(link, 'StremioUrl');
+    $('login').hidden = true;
+    $('result').hidden = false;
+    $('intro').hidden = true;
+    showError('');
+  }
+
+  // A session this page opened is closed when the page goes away; the link keeps working.
+  window.addEventListener('pagehide', function () {
+    if (ownSession && token) {
+      fetch(base + '/Sessions/Logout', { method: 'POST', keepalive: true,
+        headers: { 'Authorization': clientHeader + ', Token="' + token + '"' } });
+    }
+  });
+
+  function fetchLink(accessToken) {
+    return api('GET', '/ponte/me', accessToken).then(function (link) { token = accessToken; return link; });
+  }
+
+  // A Jellyfin web session in this browser, if there is one.
+  function storedTokens() {
+    try {
+      var creds = JSON.parse(localStorage.getItem('jellyfin_credentials') || '{}');
+      return (creds.Servers || []).map(function (s) { return s.AccessToken; }).filter(Boolean);
+    } catch (e) { return []; }
+  }
+
+  function tryStored(tokens) {
+    if (!tokens.length) { return Promise.reject(new Error('none')); }
+    return fetchLink(tokens[0]).catch(function () { return tryStored(tokens.slice(1)); });
+  }
+
+  tryStored(storedTokens()).then(show).catch(function () { $('login').hidden = false; $('user').focus(); });
+
+  $('login').addEventListener('submit', function (e) {
+    e.preventDefault();
+    showError('');
+    api('POST', '/Users/AuthenticateByName', null, { Username: $('user').value, Pw: $('pass').value })
+      .then(function (auth) { ownSession = true; return fetchLink(pick(auth, 'AccessToken')); })
+      .then(show)
+      .catch(function (err) { showError(err.status === 401 ? 'Wrong username or password.' : 'Could not sign in (' + err.message + ').'); });
+  });
+
+  $('copy').addEventListener('click', function () {
+    var input = $('manifest');
+    (navigator.clipboard ? navigator.clipboard.writeText(input.value) : Promise.reject())
+      .then(function () { $('copy').textContent = 'Copied'; })
+      .catch(function () { input.select(); document.execCommand('copy'); $('copy').textContent = 'Copied'; });
+  });
+
+  $('reset').addEventListener('click', function () {
+    var confirmBtn = $('reset');
+    if (confirmBtn.dataset.armed !== '1') {
+      confirmBtn.dataset.armed = '1';
+      confirmBtn.textContent = 'Click again to reset';
+      return;
+    }
+    confirmBtn.dataset.armed = '';
+    confirmBtn.textContent = 'Reset link';
+    api('POST', '/ponte/me/reset', token).then(show).catch(function (err) { showError('Could not reset (' + err.message + ').'); });
+  });
+})();
+</script>
+</body>
+</html>

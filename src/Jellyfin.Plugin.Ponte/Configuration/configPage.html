@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Ponte</title>
+</head>
+<body>
+<div id="PonteConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+            <div class="verticalSection">
+                <h2 class="sectionTitle">Ponte</h2>
+                <p>Ponte serves this server's movies and shows as a Stremio addon, for Stremio, Nuvio, AIOStreams and any other client that speaks the addon protocol. Each user gets their own addon link, which plays as that user.</p>
+            </div>
+
+            <div class="verticalSection">
+                <h3 class="sectionTitle">Your addon link</h3>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="ponteMyLink" label="Manifest URL" readonly />
+                    <div class="fieldDescription">Paste it into your client's addon list. Keep it private: it plays as you.</div>
+                </div>
+                <div>
+                    <button is="emby-button" type="button" id="ponteCopy" class="raised button-submit"><span>Copy</span></button>
+                    <a is="emby-linkbutton" id="ponteInstall" class="raised emby-button" href="#"><span>Open in Stremio</span></a>
+                    <button is="emby-button" type="button" id="ponteReset" class="raised"><span>Reset link</span></button>
+                </div>
+                <p class="fieldDescription">Other users get theirs at <a id="ponteLinkPage" target="_blank" href="#"></a> after signing in with their Jellyfin account.</p>
+            </div>
+
+            <form id="PonteConfigForm">
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Settings</h3>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="url" id="PublicUrl" label="Public URL" placeholder="https://jellyfin.example.com" />
+                        <div class="fieldDescription">The address clients reach this server at. Leave empty to use the address of each request; set it when a reverse proxy changes the host or scheme.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="AddonName" label="Addon name" />
+                        <div class="fieldDescription">Shown in clients. Leave empty for "Ponte · server name".</div>
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="number" id="PageSize" label="Items per catalog page" min="1" max="500" />
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label><input is="emby-checkbox" type="checkbox" id="EnableLibraryCatalogs" /><span>A catalog for each movie and show library</span></label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label><input is="emby-checkbox" type="checkbox" id="EnableRecentCatalogs" /><span>"Recently added" catalogs</span></label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label><input is="emby-checkbox" type="checkbox" id="EnableResumeCatalogs" /><span>"Continue watching" catalogs</span></label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label><input is="emby-checkbox" type="checkbox" id="EnableSubtitles" /><span>Offer external subtitle files</span></label>
+                        <div class="fieldDescription">Embedded subtitles travel inside the file and need no setting.</div>
+                    </div>
+                    <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+                </div>
+            </form>
+
+            <div class="verticalSection">
+                <h3 class="sectionTitle">Links handed out</h3>
+                <div id="ponteLinks"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = '1bbb9efc-a177-428b-acdc-8d9370cc3a62';
+            var page = document.querySelector('#PonteConfigPage');
+            var bools = ['EnableLibraryCatalogs', 'EnableRecentCatalogs', 'EnableResumeCatalogs', 'EnableSubtitles'];
+
+            function pick(o, name) {
+                return o[name] !== undefined ? o[name] : o[name.charAt(0).toLowerCase() + name.slice(1)];
+            }
+
+            function showLink(link) {
+                var manifest = pick(link, 'ManifestUrl');
+                page.querySelector('#ponteMyLink').value = manifest;
+                page.querySelector('#ponteInstall').href = pick(link, 'StremioUrl');
+            }
+
+            function loadMyLink() {
+                return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('ponte/me'), dataType: 'json' }).then(showLink);
+            }
+
+            function renderLinks(config) {
+                var container = page.querySelector('#ponteLinks');
+                ApiClient.getUsers().then(function (users) {
+                    var names = {};
+                    users.forEach(function (u) { names[u.Id.replace(/-/g, '').toLowerCase()] = u.Name; });
+                    var links = config.Links || [];
+                    if (!links.length) {
+                        container.innerHTML = '<p class="fieldDescription">No links yet.</p>';
+                        return;
+                    }
+                    container.innerHTML = '';
+                    links.forEach(function (link, i) {
+                        var row = document.createElement('div');
+                        row.className = 'listItem';
+                        var name = names[String(link.UserId).replace(/-/g, '').toLowerCase()] || link.UserId;
+                        var text = document.createElement('div');
+                        text.className = 'listItemBody';
+                        text.textContent = name + ' — created ' + new Date(link.CreatedAt).toLocaleString();
+                        var revoke = document.createElement('button');
+                        revoke.setAttribute('is', 'emby-button');
+                        revoke.className = 'raised';
+                        revoke.type = 'button';
+                        revoke.textContent = 'Revoke';
+                        revoke.addEventListener('click', function () {
+                            config.Links.splice(i, 1);
+                            ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
+                                renderLinks(config);
+                                loadMyLink();
+                            });
+                        });
+                        row.appendChild(text);
+                        row.appendChild(revoke);
+                        container.appendChild(row);
+                    });
+                });
+            }
+
+            function load() {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    page.querySelector('#PublicUrl').value = config.PublicUrl || '';
+                    page.querySelector('#AddonName').value = config.AddonName || '';
+                    page.querySelector('#PageSize').value = config.PageSize || 100;
+                    bools.forEach(function (b) { page.querySelector('#' + b).checked = !!config[b]; });
+                    var linkPage = ApiClient.getUrl('ponte/link');
+                    var a = page.querySelector('#ponteLinkPage');
+                    a.href = linkPage;
+                    a.textContent = linkPage;
+                    return loadMyLink().then(function () {
+                        // Loading the link may have created one; read the list afterwards.
+                        return ApiClient.getPluginConfiguration(pluginId).then(renderLinks);
+                    });
+                }).finally(function () { Dashboard.hideLoadingMsg(); });
+            }
+
+            page.addEventListener('pageshow', load);
+
+            page.querySelector('#ponteCopy').addEventListener('click', function () {
+                var input = page.querySelector('#ponteMyLink');
+                navigator.clipboard.writeText(input.value).then(function () {
+                    Dashboard.alert('Copied.');
+                });
+            });
+
+            page.querySelector('#ponteReset').addEventListener('click', function () {
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('ponte/me/reset'), dataType: 'json' })
+                    .then(showLink)
+                    .then(function () { return ApiClient.getPluginConfiguration(pluginId).then(renderLinks); });
+            });
+
+            page.querySelector('#PonteConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.PublicUrl = page.querySelector('#PublicUrl').value.trim();
+                    config.AddonName = page.querySelector('#AddonName').value.trim();
+                    config.PageSize = parseInt(page.querySelector('#PageSize').value, 10) || 100;
+                    bools.forEach(function (b) { config[b] = page.querySelector('#' + b).checked; });
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                }).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                    loadMyLink();
+                });
+                return false;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

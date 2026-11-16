@@ -1,0 +1,61 @@
+name: Release
+
+# Push a tag like v0.2.0. The workflow builds both ABIs, attaches the zips to a GitHub release
+# and adds them to manifest.json on main, which is the plugin repository Jellyfin reads.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Version from the tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          git checkout "$GITHUB_REF_NAME" -- src
+          dotnet build src/Jellyfin.Plugin.Ponte -c Release -p:PonteVersion=${{ steps.version.outputs.version }}
+
+      - name: Release notes
+        id: notes
+        run: |
+          notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/-----BEGIN/,$d')
+          [ -n "$notes" ] || notes="Release ${GITHUB_REF_NAME}"
+          {
+            echo "text<<PONTE_EOF"
+            echo "$notes"
+            echo "PONTE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Package and update manifest.json
+        run: python3 scripts/package.py "${{ steps.version.outputs.version }}" "${{ steps.notes.outputs.text }}"
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "Ponte ${GITHUB_REF_NAME}" --notes "${{ steps.notes.outputs.text }}" --verify-tag
+
+      - name: Publish manifest.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git restore --staged src 2>/dev/null || true
+          git checkout main -- src
+          git add manifest.json
+          git commit -m "chore(release): ${GITHUB_REF_NAME} in manifest.json"
+          git push origin main
