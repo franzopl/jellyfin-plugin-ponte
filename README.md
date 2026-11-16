@@ -66,6 +66,24 @@ Add it as a **Custom** addon with the manifest URL and turn on **Library addon**
 files are recognised as library results and AIOStreams can sort them first. AIOStreams' variants
 and filters apply to Ponte's streams like to any other addon's.
 
+### Tested setup
+
+Verified on 2026-11-16 with Ponte 0.1.0 on a Jellyfin 12.1 server (hotio image) that also runs
+Gelato, and AIOStreams 2.38 on the same machine:
+
+- AIOStreams added Ponte as a Custom addon (streams and subtitles, *Library addon* on) through
+  the server's LAN address; the manifest answered in about 5 ms.
+- Ponte's stream came first in AIOStreams' results, labelled *Your Media*, with resolution,
+  codec, audio, languages and size parsed from its description, ahead of the Usenet results.
+- With **Public URL** left empty, stream URLs used the LAN address AIOStreams called, and the
+  file played with range requests (HTTP 206) straight from Jellyfin. AIOStreams' per-user
+  variants (a 1080p-only profile for one TV) applied to Ponte's streams like to any other addon's.
+- The clients were AIOStreams' Samsung Tizen app (4K TV) and a Fire TV Stick (1080p).
+
+Tip: when AIOStreams and Jellyfin share a network, point AIOStreams at Jellyfin's LAN address
+and leave *Public URL* empty, so playback stays local instead of going out through a CDN or
+reverse proxy and back. Set *Public URL* only if the files must play away from home.
+
 ## Settings
 
 | Setting | Default | |
