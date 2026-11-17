@@ -20,6 +20,8 @@ Jellyfin. The two work together: Ponte never serves the items Gelato creates.
 Tip: if the client or AIOStreams is on the same network as Jellyfin, use Jellyfin's LAN address
 and leave *Public URL* empty so playback stays local.
 
+**Step-by-step guide with screenshots:** [English](docs/guide.md) · [Português](docs/guia.pt-BR.md)
+
 ## Features
 
 - **Catalogs**: one per movie and show library, plus *Recently added* and *Continue watching*,
