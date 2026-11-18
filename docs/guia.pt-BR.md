@@ -137,9 +137,12 @@ Cole o link na busca de addons do app (ou use **Open in Stremio**, se o app abri
 
 Se você já usa o AIOStreams com addons de Usenet ou torrent, dá para juntar os seus arquivos locais aos resultados da Usenet:
 
-1. Na configuração do AIOStreams, adicione um addon **Custom**.
+1. Na configuração do AIOStreams, adicione um addon com o preset **AIOStreams** (não o *Custom*).
 2. Cole o link do Ponte como **manifest URL**.
-3. Ative a opção **Library addon**.
+3. Deixe **Name** vazio, para os resultados mostrarem o nome do próprio Ponte.
+4. Ative a opção **Library addon**.
+
+É esse preset que permite ao AIOStreams ler tudo o que o Ponte sabe sobre cada arquivo: idiomas de áudio e de legenda, faixas forçadas e SDH, HDR, codec, origem, grupo e serviço de streaming. Com o *Custom*, o AIOStreams só lê o nome do arquivo, e os idiomas de áudio e as legendas somem.
 
 Com **Library addon** ligado, o AIOStreams reconhece os streams do Ponte como resultado da sua biblioteca ("Your Media") e consegue colocá-los **antes** dos resultados da Usenet. Os filtros e variantes do AIOStreams (por exemplo, um perfil só 1080p para uma TV mais simples) valem para os streams do Ponte como para qualquer outro addon.
 

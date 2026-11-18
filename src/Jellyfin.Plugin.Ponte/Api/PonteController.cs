@@ -10,6 +10,7 @@ using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.Ponte.Api;
@@ -229,13 +230,25 @@ public class PonteController : ControllerBase
         }
 
         var baseUrl = BaseUrl();
-        var subtitles = _library.ExternalSubtitles(user, type, parsed)
-            .Select(s => new Subtitle(
-                string.Create(CultureInfo.InvariantCulture, $"ponte-{s.Item.Id:N}-{s.Stream.Index}"),
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"{baseUrl}/ponte/{token}/subtitle/{s.Item.Id:N}/{s.Source.Id}/{s.Stream.Index}/{Uri.EscapeDataString(Path.GetFileName(s.Stream.Path))}"),
-                StreamFormatter.SubtitleLanguageCode(s.Stream.Language)))
+        var playing = PlayingFile.Parse(extra is null ? null : RawExtra() ?? extra);
+        var subtitles = _library.ExternalSubtitles(user, type, parsed, playing)
+            .Select(s =>
+            {
+                var facts = new SubtitleFacts(
+                    s.Stream.Language,
+                    s.Stream.Title,
+                    IsForced: s.Stream.IsForced,
+                    IsHearingImpaired: s.Stream.IsHearingImpaired);
+                return new Subtitle(
+                    string.Create(CultureInfo.InvariantCulture, $"ponte-{s.Item.Id:N}-{s.Stream.Index}"),
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{baseUrl}/ponte/{token}/subtitle/{s.Item.Id:N}/{s.Source.Id}/{s.Stream.Index}/{Uri.EscapeDataString(Path.GetFileName(s.Stream.Path))}"),
+                    StreamFormatter.SubtitleLanguageCode(s.Stream.Language),
+                    StreamFormatter.ExternalSubtitleLabel,
+                    StreamFormatter.IsForced(facts) ? true : null,
+                    StreamFormatter.IsHearingImpaired(facts) ? true : null);
+            })
             .ToList();
         return Json(new { subtitles });
     }
@@ -288,6 +301,22 @@ public class PonteController : ControllerBase
 
         var user = _userManager.GetUserById(userId.Value);
         return user is null || user.HasPermission(Jellyfin.Database.Implementations.Enums.PermissionKind.IsDisabled) ? null : user;
+    }
+
+    // Routing has already decoded the segment, which turns an encoded "&" in a file name into a
+    // separator, so the extra is read from the request line as the client sent it.
+    private string? RawExtra()
+    {
+        var target = HttpContext.Features.Get<IHttpRequestFeature>()?.RawTarget;
+        if (string.IsNullOrEmpty(target))
+        {
+            return null;
+        }
+
+        var query = target.IndexOf('?', StringComparison.Ordinal);
+        var path = query >= 0 ? target[..query] : target;
+        var segment = path[(path.LastIndexOf('/') + 1)..];
+        return segment.EndsWith(".json", StringComparison.Ordinal) ? segment[..^5] : null;
     }
 
     private Guid? CurrentUserId()

@@ -14,8 +14,8 @@ Jellyfin. The two work together: Ponte never serves the items Gelato creates.
    `https://raw.githubusercontent.com/franzopl/jellyfin-plugin-ponte/main/manifest.json`
 2. **Install Ponte** from the catalog and restart Jellyfin.
 3. **Copy your addon link** from Dashboard → Plugins → Ponte (other users: `https://<your-jellyfin>/ponte/link`).
-4. **Add it to your client**: paste it into Stremio, Nuvio or Omni, or in AIOStreams add it as a
-   *Custom* addon with *Library addon* on.
+4. **Add it to your client**: paste it into Stremio, Nuvio or Omni, or in AIOStreams add it with
+   the *AIOStreams* preset, *Name* empty and *Library addon* on.
 
 Tip: if the client or AIOStreams is on the same network as Jellyfin, use Jellyfin's LAN address
 and leave *Public URL* empty so playback stays local.
@@ -30,9 +30,10 @@ and leave *Public URL* empty so playback stays local.
   the episode list of every series.
 - **Streams**: each file of a movie or episode, looked up by IMDb, TMDB or Ponte id and played
   straight from disk with seeking (HTTP range requests). Every stream says what it is
-  (resolution, codec, HDR/DV, audio, languages, size) in the release-name vocabulary AIOStreams
-  and other clients parse.
-- **Subtitles**: external subtitle files next to your media. Embedded tracks travel inside the
+  (resolution, codec, HDR/DV, audio, languages, subtitles with their Brazilian, forced and SDH
+  variants, size), and carries the same data in structured form for AIOStreams.
+- **Subtitles**: external subtitle files next to your media, labelled as external and matched to
+  the file being played when the client says which one it is. Embedded tracks travel inside the
   file anyway.
 - **Per-user links**: every Jellyfin user gets a private addon URL that plays as them, with
   their library access and parental controls. Links can be reset (old URL stops working) or
@@ -76,8 +77,13 @@ Paste the link into the client's addon search box, or use *Open in Stremio*.
 
 ### AIOStreams
 
-Add it as a **Custom** addon with the manifest URL and turn on **Library addon**, so your own
-files are recognised as library results and AIOStreams can sort them first. AIOStreams' variants
+Add it with the **AIOStreams** preset, not *Custom*: paste the manifest URL, leave **Name** empty
+so results show Ponte's own name, and turn on **Library addon**. Each stream carries a `streamData`
+block with what Jellyfin probed (audio and subtitle tracks, languages, HDR, codec) and what the
+file name says (source, release group, network, edition). The *Custom* preset ignores that block
+and only reads the file name, so audio languages and subtitles would be missing from AIOStreams'
+filters, sorting and formatters. Your files are recognised as library results and AIOStreams can
+sort them first. AIOStreams' variants
 and filters apply to Ponte's streams like to any other addon's.
 
 ### Tested setup
@@ -87,12 +93,15 @@ Gelato, and AIOStreams 2.38 on the same machine:
 
 - AIOStreams added Ponte as a Custom addon (streams and subtitles, *Library addon* on) through
   the server's LAN address; the manifest answered in about 5 ms.
-- Ponte's stream came first in AIOStreams' results, labelled *Your Media*, with resolution,
-  codec, audio, languages and size parsed from its description, ahead of the Usenet results.
+- Ponte's stream came first in AIOStreams' results, labelled *Your Media*, ahead of the Usenet
+  results.
 - With **Public URL** left empty, stream URLs used the LAN address AIOStreams called, and the
   file played with range requests (HTTP 206) straight from Jellyfin. AIOStreams' per-user
   variants (a 1080p-only profile for one TV) applied to Ponte's streams like to any other addon's.
 - The clients were AIOStreams' Samsung Tizen app (4K TV) and a Fire TV Stick (1080p).
+
+The `streamData` block was verified on 2026-11-18 against AIOStreams 2.38 through the AIOStreams
+preset: codec, audio, languages and subtitles reached its formatter.
 
 Tip: when AIOStreams and Jellyfin share a network, point AIOStreams at Jellyfin's LAN address
 and leave *Public URL* empty, so playback stays local instead of going out through a CDN or

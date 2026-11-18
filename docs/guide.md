@@ -137,9 +137,12 @@ Paste the link into the app's addon search (or use **Open in Stremio** if the ap
 
 If you already use AIOStreams with Usenet or torrent addons, you can merge your local files into those results:
 
-1. In AIOStreams' configuration, add a **Custom** addon.
+1. In AIOStreams' configuration, add an addon with the **AIOStreams** preset (not *Custom*).
 2. Paste Ponte's link as the **manifest URL**.
-3. Turn on **Library addon**.
+3. Leave **Name** empty, so results show Ponte's own name.
+4. Turn on **Library addon**.
+
+This preset is what lets AIOStreams read everything Ponte knows about each file: audio and subtitle languages, forced and SDH tracks, HDR, codec, source, release group and network. With *Custom*, AIOStreams only reads the file name, and audio languages and subtitles go missing.
 
 With **Library addon** on, AIOStreams recognises Ponte's streams as results from your own library ("Your Media") and can sort them **ahead** of everything else. AIOStreams' filters and variants (a 1080p-only profile for a simpler TV, for example) apply to Ponte's streams like to any other addon's.
 

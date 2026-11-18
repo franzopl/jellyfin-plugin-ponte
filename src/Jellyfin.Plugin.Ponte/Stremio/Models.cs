@@ -111,6 +111,9 @@ public sealed class Stream
     public required string Description { get; init; }
 
     public StreamHints? BehaviorHints { get; init; }
+
+    /// <summary>Everything known about the file, for AIOStreams; other clients ignore it.</summary>
+    public StreamData? StreamData { get; init; }
 }
 
 /// <summary>Stream behaviour hints.</summary>
@@ -125,5 +128,113 @@ public sealed class StreamHints
     public bool? NotWebReady { get; init; }
 }
 
-/// <summary>A subtitle track.</summary>
-public sealed record Subtitle(string Id, string Url, string Lang);
+/// <summary>AIOStreams' description of a stream.</summary>
+public sealed class StreamData
+{
+    public required string Addon { get; init; }
+
+    public string Type { get; init; } = "http";
+
+    public bool Library { get; init; } = true;
+
+    public required string Filename { get; init; }
+
+    public long? Size { get; init; }
+
+    /// <summary>The running time in milliseconds.</summary>
+    public long? Duration { get; init; }
+
+    public required ParsedFile ParsedFile { get; init; }
+}
+
+/// <summary>AIOStreams' parsed view of a file, in its own vocabulary.</summary>
+public sealed class ParsedFile
+{
+    public string? Title { get; init; }
+
+    public string? Year { get; init; }
+
+    public IReadOnlyList<int>? Seasons { get; init; }
+
+    public IReadOnlyList<int>? Episodes { get; init; }
+
+    public string? Resolution { get; init; }
+
+    public string? Quality { get; init; }
+
+    public string? Encode { get; init; }
+
+    public string? ReleaseGroup { get; init; }
+
+    public string? Network { get; init; }
+
+    public IReadOnlyList<string>? Editions { get; init; }
+
+    public bool? Repack { get; init; }
+
+    public bool? Proper { get; init; }
+
+    public required IReadOnlyList<string> VisualTags { get; init; }
+
+    public required IReadOnlyList<string> AudioTags { get; init; }
+
+    public required IReadOnlyList<string> AudioChannels { get; init; }
+
+    public required IReadOnlyList<string> Languages { get; init; }
+
+    public required IReadOnlyList<string> Subtitles { get; init; }
+
+    public required IReadOnlyList<MediaTrack> AudioTracks { get; init; }
+
+    public required IReadOnlyList<MediaTrack> SubtitleTracks { get; init; }
+
+    public int? VideoIndex { get; init; }
+
+    public string? Container { get; init; }
+
+    public string? Extension { get; init; }
+
+    /// <summary>Where the track data comes from: Jellyfin's ffprobe scan of the file.</summary>
+    public string MediaInfoQuality { get; init; } = "probe";
+}
+
+/// <summary>One audio or subtitle track of a file.</summary>
+public sealed class MediaTrack
+{
+    public int? Index { get; init; }
+
+    public string? Lang { get; init; }
+
+    public string? Codec { get; init; }
+
+    public string? Title { get; init; }
+
+    public string? Tag { get; init; }
+
+    public IReadOnlyList<string>? Tags { get; init; }
+
+    public string? Channels { get; init; }
+
+    public bool? Default { get; init; }
+
+    public bool? Forced { get; init; }
+
+    public bool? Commentary { get; init; }
+
+    public bool? HearingImpaired { get; init; }
+}
+
+/// <summary>A subtitle file offered through the subtitles resource.</summary>
+/// <param name="Id">The subtitle's id.</param>
+/// <param name="Url">Where the file is served.</param>
+/// <param name="Lang">The language code.</param>
+/// <param name="Label">The name players that support labels show next to the language.</param>
+/// <param name="Forced">True for a forced subtitle.</param>
+/// <param name="HearingImpaired">True for an SDH subtitle.</param>
+public sealed record Subtitle(
+    string Id,
+    string Url,
+    string Lang,
+    string? Label = null,
+    bool? Forced = null,
+    bool? HearingImpaired = null);

@@ -27,7 +27,7 @@ case "$VERSION" in
 esac
 PORT="${2:-$DEFAULT_PORT}"
 NAME="ponte-jellyfin-$VERSION"
-URL="http://localhost:$PORT"
+URL="http://127.0.0.1:$PORT"
 DLL="$ROOT/src/Jellyfin.Plugin.Ponte/bin/Release/$TFM/Jellyfin.Plugin.Ponte.dll"
 
 [[ -f "$DLL" ]] || { echo "build first: dotnet build -c Release (missing $DLL)" >&2; exit 1; }
@@ -42,7 +42,17 @@ make_video() { # out size vcodec seconds audio-lang
   ffmpeg -loglevel error -y -f lavfi -i "testsrc2=size=$2:rate=24" -f lavfi -i "sine=frequency=440:sample_rate=48000" \
     -t "$4" -map 0:v -map 1:a "${v[@]}" -c:a aac -ac 2 -metadata:s:a:0 language="$5" "$1"
 }
+embed_subtitles() { # file: adds a full and a forced Brazilian Portuguese track, once
+  [[ -n "$(ffprobe -v error -select_streams s -show_entries stream=index -of csv=p=0 "$1")" ]] && return
+  local srt="$DEV/embedded.srt" out="$DEV/embedded.mkv"
+  printf '1\n00:00:01,000 --> 00:00:04,000\nEmbutida\n' > "$srt"
+  ffmpeg -loglevel error -y -i "$1" -i "$srt" -i "$srt" -map 0 -map 1 -map 2 -c copy -c:s srt \
+    -metadata:s:s:0 language=por -metadata:s:s:0 title="Brazilian" \
+    -metadata:s:s:1 language=por -metadata:s:s:1 title="Brazilian (Forced)" -disposition:s:1 forced "$out"
+  mv "$out" "$1"
+}
 make_video "$MEDIA/movies/Big Buck Bunny (2008) [imdbid-tt1254207]/Big Buck Bunny (2008) - 1080p.mkv" 1920x1080 h264 6 por
+embed_subtitles "$MEDIA/movies/Big Buck Bunny (2008) [imdbid-tt1254207]/Big Buck Bunny (2008) - 1080p.mkv"
 make_video "$MEDIA/movies/Big Buck Bunny (2008) [imdbid-tt1254207]/Big Buck Bunny (2008) - 2160p.mkv" 3840x2160 hevc 3 eng
 printf '1\n00:00:01,000 --> 00:00:04,000\nOlá, Ponte!\n' > "$MEDIA/movies/Big Buck Bunny (2008) [imdbid-tt1254207]/Big Buck Bunny (2008) - 1080p.pt-BR.srt"
 make_video "$MEDIA/movies/Ponte Test Clip (2031)/Ponte Test Clip (2031).mp4" 1280x720 h264 4 und
