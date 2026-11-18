@@ -27,28 +27,28 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           git checkout "$GITHUB_REF_NAME" -- src
-          dotnet build src/Jellyfin.Plugin.Ponte -c Release -p:PonteVersion=${{ steps.version.outputs.version }}
+          dotnet build src/Jellyfin.Plugin.Ponte -c Release -p:PonteVersion="$VERSION"
 
+      # The notes are free text, so they stay in a file and never become part of a command.
       - name: Release notes
-        id: notes
         run: |
           notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/-----BEGIN/,$d')
           [ -n "$notes" ] || notes="Release ${GITHUB_REF_NAME}"
-          {
-            echo "text<<PONTE_EOF"
-            echo "$notes"
-            echo "PONTE_EOF"
-          } >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$notes" > "$RUNNER_TEMP/release-notes.txt"
 
       - name: Package and update manifest.json
-        run: python3 scripts/package.py "${{ steps.version.outputs.version }}" "${{ steps.notes.outputs.text }}"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: python3 scripts/package.py "$VERSION" "$(cat "$RUNNER_TEMP/release-notes.txt")"
 
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "Ponte ${GITHUB_REF_NAME}" --notes "${{ steps.notes.outputs.text }}" --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "Ponte ${GITHUB_REF_NAME}" --notes-file "$RUNNER_TEMP/release-notes.txt" --verify-tag
 
       - name: Publish manifest.json
         run: |
