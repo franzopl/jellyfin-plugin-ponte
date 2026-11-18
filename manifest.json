@@ -9,6 +9,22 @@
     "imageUrl": "https://raw.githubusercontent.com/franzopl/jellyfin-plugin-ponte/main/assets/banner.png",
     "versions": [
       {
+        "version": "0.1.1.12",
+        "changelog": "Complete release details for AIOStreams, Stremio and other clients.\n\n- Every stream now carries structured data for AIOStreams: audio and subtitle tracks, languages, HDR, codec, source, release group, network and edition\n- Stream descriptions list subtitle variants: Brazilian and European Portuguese, Latin American Spanish, forced and SDH\n- External subtitles are labelled as external and follow the file being played\n- Commentary tracks no longer count as audio languages\n- More Dolby Vision range types, DTS:X on DTS-HD MA and more language names are recognised\n\nAIOStreams users: add Ponte with the AIOStreams preset instead of Custom, with Name empty, to get this data.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/franzopl/jellyfin-plugin-ponte/releases/download/v0.1.1/ponte_0.1.1.12.zip",
+        "checksum": "4f889a6ed6de4c1c962fc2f315339339",
+        "timestamp": "2026-11-18T19:49:25Z"
+      },
+      {
+        "version": "0.1.1.10",
+        "changelog": "Complete release details for AIOStreams, Stremio and other clients.\n\n- Every stream now carries structured data for AIOStreams: audio and subtitle tracks, languages, HDR, codec, source, release group, network and edition\n- Stream descriptions list subtitle variants: Brazilian and European Portuguese, Latin American Spanish, forced and SDH\n- External subtitles are labelled as external and follow the file being played\n- Commentary tracks no longer count as audio languages\n- More Dolby Vision range types, DTS:X on DTS-HD MA and more language names are recognised\n\nAIOStreams users: add Ponte with the AIOStreams preset instead of Custom, with Name empty, to get this data.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/franzopl/jellyfin-plugin-ponte/releases/download/v0.1.1/ponte_0.1.1.10.zip",
+        "checksum": "c14f1b5f9036b1b5ad15597a0634ab5b",
+        "timestamp": "2026-11-18T19:49:25Z"
+      },
+      {
         "version": "0.1.0.12",
         "changelog": "First release.\n\n- Catalogs per movie/show library, Recently added and Continue watching, with search and paging\n- Metadata with posters, backdrops, logos and episode lists\n- Direct-play streams with range support, described for AIOStreams (resolution, codec, HDR/DV, audio, languages, size)\n- External subtitles\n- Private per-user addon links with reset and admin revoke\n- Gelato items are never served\n- Jellyfin 10.11 and 12.x",
         "targetAbi": "12.0.0.0",
