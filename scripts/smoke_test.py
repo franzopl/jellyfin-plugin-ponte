@@ -104,6 +104,21 @@ check("highest resolution first", "2160p" in streams[0]["name"] and "1080p" in s
 check("HEVC and 10bit described", "HEVC" in streams[0]["description"] and "10bit" in streams[0]["description"], streams[0]["description"].replace("\n", " | "))
 check("audio language described", "Portuguese" in streams[1]["description"], streams[1]["description"].replace("\n", " | "))
 check("filename hint", streams[1]["behaviorHints"]["filename"].endswith(".mkv"))
+check("subtitle variants described", "Portuguese (Brazil) Forced" in streams[1]["description"], streams[1]["description"].replace("\n", " | "))
+
+print("aiostreams data")
+data = streams[1]["streamData"]
+parsed = data["parsedFile"]
+check("marked as a library http stream", data["library"] is True and data["type"] == "http")
+check("title and year", parsed["title"] == "Big Buck Bunny" and parsed["year"] == "2008", f'{parsed["title"]} {parsed.get("year")}')
+check("resolution and encode", parsed["resolution"] == "1080p" and parsed["encode"] == "AVC")
+check("audio tags and language", parsed["audioTags"] == ["AAC"] and parsed["languages"] == ["Portuguese"], str(parsed["languages"]))
+check("subtitle languages", parsed["subtitles"] == ["Portuguese (Brazil)"], str(parsed["subtitles"]))
+tracks = parsed["subtitleTracks"]
+check("only embedded tracks, numbered as in the file", [t.get("index") for t in tracks] == [2, 3], str(tracks))
+check("forced track flagged", tracks[1].get("forced") is True, str(tracks[1]))
+episode_data = request(f"{addon}/stream/series/tt0944947:1:2.json")["streams"][0]["streamData"]["parsedFile"]
+check("episode numbers", episode_data["seasons"] == [1] and episode_data["episodes"] == [2], str(episode_data.get("episodes")))
 ep = request(f"{addon}/stream/series/tt0944947:1:2.json")["streams"]
 check("episode stream", len(ep) == 1 and "S01E02" in ep[0]["description"])
 none = request(f"{addon}/stream/series/tt0944947:9:9.json")["streams"]
@@ -122,6 +137,12 @@ check("video content type", headers.get("Content-Type", "").startswith("video/")
 print("subtitles")
 subs = request(f"{addon}/subtitles/movie/tt1254207.json")["subtitles"]
 check("external subtitle offered", len(subs) == 1 and subs[0]["lang"] == "pob", str(subs))
+def subtitles_for(extra):
+    return request(f"{addon}/subtitles/movie/tt1254207/{extra}.json")["subtitles"]
+check("the file with the subtitle gets it", len(subtitles_for("filename=Big%20Buck%20Bunny%20%282008%29%20-%201080p.mkv")) == 1)
+check("another copy does not", subtitles_for("filename=Big%20Buck%20Bunny%20%282008%29%20-%202160p.mkv") == [])
+check("an unknown file gets every copy's", len(subtitles_for("filename=renamed.mkv")) == 1)
+check("external subtitle labelled", subs[0].get("label") == "External · Ponte", str(subs[0].get("label")))
 if subs:
     _, _, sub = request(subs[0]["url"], raw=True)
     check("subtitle file served", "Ponte" in sub.decode("utf-8", "replace"))

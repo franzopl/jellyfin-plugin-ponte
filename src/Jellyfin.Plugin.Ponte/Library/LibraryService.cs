@@ -160,7 +160,7 @@ public sealed class LibraryService
         {
             foreach (var source in LocalSources(item, user))
             {
-                var facts = Facts(source);
+                var facts = Facts(item, source);
                 var resolution = StreamFormatter.Resolution(facts.Width, facts.Height) ?? "unknown";
                 streams.Add(new StremioStream
                 {
@@ -174,6 +174,7 @@ public sealed class LibraryService
                         BingeGroup = "ponte-" + resolution,
                         NotWebReady = !string.Equals(source.Container, "mp4", StringComparison.OrdinalIgnoreCase) ? true : null,
                     },
+                    StreamData = AioStreamsData.Build(facts, addonName),
                 });
             }
         }
@@ -185,26 +186,31 @@ public sealed class LibraryService
             .ToList();
     }
 
-    /// <summary>The external subtitle files of a movie or episode.</summary>
+    /// <summary>
+    /// The external subtitle files of a movie or episode. When the client says which file it is
+    /// playing, only that file's: a subtitle timed for another copy would be out of sync.
+    /// </summary>
     public IReadOnlyList<(BaseItem Item, MediaSourceInfo Source, MediaStream Stream)> ExternalSubtitles(
         Jellyfin.Database.Implementations.Entities.User user,
         string type,
-        StremioId id)
+        StremioId id,
+        PlayingFile playing)
     {
+        var files = FindPlayable(user, type, id)
+            .SelectMany(item => LocalSources(item, user).Select(source => (Item: item, Source: source)))
+            .ToList();
+
         var result = new List<(BaseItem, MediaSourceInfo, MediaStream)>();
-        foreach (var item in FindPlayable(user, type, id))
+        foreach (var (item, source) in playing.Select(files, f => Path.GetFileName(f.Source.Path), f => f.Source.Size ?? TryFileSize(f.Source.Path)))
         {
-            foreach (var source in LocalSources(item, user))
+            foreach (var stream in source.MediaStreams)
             {
-                foreach (var stream in source.MediaStreams)
+                if (stream.Type == MediaStreamType.Subtitle
+                    && stream.IsExternal
+                    && !string.IsNullOrEmpty(stream.Path)
+                    && File.Exists(stream.Path))
                 {
-                    if (stream.Type == MediaStreamType.Subtitle
-                        && stream.IsExternal
-                        && !string.IsNullOrEmpty(stream.Path)
-                        && File.Exists(stream.Path))
-                    {
-                        result.Add((item, source, stream));
-                    }
+                    result.Add((item, source, stream));
                 }
             }
         }
@@ -480,10 +486,11 @@ public sealed class LibraryService
             $"{baseUrl}/Items/{item.Id:N}/Images/{type}/0?maxWidth={maxWidth}&quality=90{(tag is null ? string.Empty : "&tag=" + tag)}");
     }
 
-    private static MediaFacts Facts(MediaSourceInfo source)
+    private static MediaFacts Facts(BaseItem item, MediaSourceInfo source)
     {
         var streams = source.MediaStreams ?? [];
         var video = streams.FirstOrDefault(s => s.Type == MediaStreamType.Video);
+        var episode = item as Episode;
         return new MediaFacts
         {
             FileName = Path.GetFileName(source.Path),
@@ -494,17 +501,29 @@ public sealed class LibraryService
             VideoCodec = video?.Codec,
             VideoRangeType = video?.VideoRangeType.ToString(),
             BitDepth = video?.BitDepth,
+            VideoIndex = video?.Index,
             Audio = streams
                 .Where(s => s.Type == MediaStreamType.Audio)
-                .Select(s => new AudioFacts(s.Codec, s.Channels, s.Language, s.Profile))
+                .Select(s => new AudioFacts(s.Codec, s.Channels, s.Language, s.Profile, s.Title, s.Index, s.IsDefault))
                 .ToList(),
-            SubtitleLanguages = streams
+            Subtitles = streams
                 .Where(s => s.Type == MediaStreamType.Subtitle)
-                .Select(s => s.Language)
-                .Where(l => l is not null)
-                .Select(l => l!)
+                .Select(s => new SubtitleFacts(
+                    s.Language,
+                    s.Title,
+                    s.Codec,
+                    s.Index,
+                    s.IsForced,
+                    s.IsHearingImpaired,
+                    s.IsDefault,
+                    s.IsExternal))
                 .ToList(),
             VersionName = source.Name,
+            Title = episode is null ? item.Name : episode.SeriesName,
+            Year = episode is null ? item.ProductionYear : null,
+            Season = episode?.ParentIndexNumber,
+            Episodes = episode?.IndexNumber is null ? [] : EpisodeNumbers(episode).ToList(),
+            RunTimeTicks = source.RunTimeTicks ?? item.RunTimeTicks,
         };
     }
 

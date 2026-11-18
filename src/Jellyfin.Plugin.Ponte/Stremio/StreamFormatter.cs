@@ -25,14 +25,46 @@ public sealed record MediaFacts
 
     public IReadOnlyList<AudioFacts> Audio { get; init; } = [];
 
-    public IReadOnlyList<string> SubtitleLanguages { get; init; } = [];
+    public IReadOnlyList<SubtitleFacts> Subtitles { get; init; } = [];
 
     /// <summary>The media source's own name, when the item has several versions.</summary>
     public string? VersionName { get; init; }
+
+    /// <summary>The movie's or series' name in the library.</summary>
+    public string? Title { get; init; }
+
+    /// <summary>A movie's year; episodes have none, as in release names.</summary>
+    public int? Year { get; init; }
+
+    public int? Season { get; init; }
+
+    public IReadOnlyList<int> Episodes { get; init; } = [];
+
+    public long? RunTimeTicks { get; init; }
+
+    public int? VideoIndex { get; init; }
 }
 
 /// <summary>One audio track.</summary>
-public sealed record AudioFacts(string? Codec, int? Channels, string? Language, string? Profile);
+public sealed record AudioFacts(
+    string? Codec,
+    int? Channels,
+    string? Language,
+    string? Profile,
+    string? Title = null,
+    int? Index = null,
+    bool IsDefault = false);
+
+/// <summary>One subtitle track, inside the file or next to it.</summary>
+public sealed record SubtitleFacts(
+    string? Language,
+    string? Title = null,
+    string? Codec = null,
+    int? Index = null,
+    bool IsForced = false,
+    bool IsHearingImpaired = false,
+    bool IsDefault = false,
+    bool IsExternal = false);
 
 /// <summary>Turns <see cref="MediaFacts"/> into the text of a Stremio stream.</summary>
 /// <remarks>
@@ -41,23 +73,38 @@ public sealed record AudioFacts(string? Codec, int? Channels, string? Language, 
 /// </remarks>
 public static class StreamFormatter
 {
-    private static readonly Dictionary<string, string> CommonLanguages = new(StringComparer.OrdinalIgnoreCase)
+    // Servers running with invariant globalization know no cultures, so the usual languages are
+    // listed here, with their ISO 639-1, 639-2/T and 639-2/B codes.
+    private static readonly Dictionary<string, string> CommonLanguages = BuildLanguages(
+        ("Albanian", "sq sqi alb"), ("Arabic", "ar ara"), ("Azerbaijani", "az aze"), ("Basque", "eu eus baq"),
+        ("Bengali", "bn ben"), ("Bosnian", "bs bos"), ("Bulgarian", "bg bul"), ("Catalan", "ca cat"),
+        ("Chinese", "zh zho chi"), ("Croatian", "hr hrv"), ("Czech", "cs ces cze"), ("Danish", "da dan"),
+        ("Dutch", "nl nld dut"), ("English", "en eng"), ("Estonian", "et est"), ("Filipino", "fil tl tgl"),
+        ("Finnish", "fi fin"), ("French", "fr fra fre"), ("Galician", "gl glg"), ("Georgian", "ka kat geo"),
+        ("German", "de deu ger"), ("Greek", "el ell gre"), ("Gujarati", "gu guj"), ("Hebrew", "he heb"),
+        ("Hindi", "hi hin"), ("Hungarian", "hu hun"), ("Icelandic", "is isl ice"), ("Indonesian", "id ind"),
+        ("Irish", "ga gle"), ("Italian", "it ita"), ("Japanese", "ja jpn"), ("Kannada", "kn kan"),
+        ("Kazakh", "kk kaz"), ("Khmer", "km khm"), ("Korean", "ko kor"), ("Latvian", "lv lav"),
+        ("Lithuanian", "lt lit"), ("Macedonian", "mk mkd mac"), ("Malay", "ms msa may"), ("Malayalam", "ml mal"),
+        ("Marathi", "mr mar"), ("Norwegian", "no nb nn nor nob nno"), ("Persian", "fa fas per"), ("Polish", "pl pol"),
+        ("Portuguese", "pt por"), ("Punjabi", "pa pan"), ("Romanian", "ro ron rum"), ("Russian", "ru rus"),
+        ("Serbian", "sr srp"), ("Sinhala", "si sin"), ("Slovak", "sk slk slo"), ("Slovenian", "sl slv"),
+        ("Spanish", "es spa"), ("Swahili", "sw swa"), ("Swedish", "sv swe"), ("Tamil", "ta tam"),
+        ("Telugu", "te tel"), ("Thai", "th tha"), ("Turkish", "tr tur"), ("Ukrainian", "uk ukr"),
+        ("Vietnamese", "vi vie"), ("Welsh", "cy cym wel"), ("Zulu", "zu zul"));
+
+    /// <summary>How a subtitle file next to the media is named in players.</summary>
+    public const string ExternalSubtitleLabel = "External · Ponte";
+
+    /// <summary>The language names AIOStreams filters and sorts on.</summary>
+    public static readonly IReadOnlySet<string> AioStreamsLanguages = new HashSet<string>(StringComparer.Ordinal)
     {
-        ["pt"] = "Portuguese", ["por"] = "Portuguese",
-        ["en"] = "English", ["eng"] = "English",
-        ["es"] = "Spanish", ["spa"] = "Spanish",
-        ["fr"] = "French", ["fra"] = "French", ["fre"] = "French",
-        ["de"] = "German", ["deu"] = "German", ["ger"] = "German",
-        ["it"] = "Italian", ["ita"] = "Italian",
-        ["ja"] = "Japanese", ["jpn"] = "Japanese",
-        ["ko"] = "Korean", ["kor"] = "Korean",
-        ["zh"] = "Chinese", ["zho"] = "Chinese", ["chi"] = "Chinese",
-        ["ru"] = "Russian", ["rus"] = "Russian",
-        ["nl"] = "Dutch", ["nld"] = "Dutch", ["dut"] = "Dutch",
-        ["pl"] = "Polish", ["pol"] = "Polish",
-        ["tr"] = "Turkish", ["tur"] = "Turkish",
-        ["ar"] = "Arabic", ["ara"] = "Arabic",
-        ["hi"] = "Hindi", ["hin"] = "Hindi",
+        "English", "Japanese", "Chinese", "Russian", "Arabic", "Portuguese", "Portuguese (Brazil)", "Spanish",
+        "French", "German", "Italian", "Korean", "Hindi", "Bengali", "Punjabi", "Marathi", "Gujarati", "Tamil",
+        "Telugu", "Kannada", "Malayalam", "Thai", "Vietnamese", "Indonesian", "Turkish", "Hebrew", "Persian",
+        "Ukrainian", "Greek", "Lithuanian", "Latvian", "Estonian", "Polish", "Czech", "Slovak", "Hungarian",
+        "Romanian", "Bulgarian", "Serbian", "Croatian", "Slovenian", "Dutch", "Danish", "Finnish", "Swedish",
+        "Norwegian", "Malay", "Latino",
     };
 
     private static readonly Dictionary<string, string> TwoToThree = new(StringComparer.OrdinalIgnoreCase)
@@ -137,7 +184,12 @@ public static class StreamFormatter
                 tags.Add("HLG");
                 break;
             case "DOVIWITHSDR":
+            case "DOVIWITHEL":
                 tags.Add("DV");
+                break;
+            case "DOVIWITHELHDR10PLUS":
+                tags.Add("DV");
+                tags.Add("HDR10+");
                 break;
         }
 
@@ -171,8 +223,9 @@ public static class StreamFormatter
             "truehd" => p.Contains("Atmos", StringComparison.OrdinalIgnoreCase) ? "TrueHD Atmos" : "TrueHD",
             "eac3" => p.Contains("Atmos", StringComparison.OrdinalIgnoreCase) ? "DD+ Atmos" : "DD+",
             "ac3" => "DD",
-            "dts" => p.Contains("MA", StringComparison.Ordinal) ? "DTS-HD MA"
-                : p.Contains("X", StringComparison.Ordinal) ? "DTS:X"
+            "dts" => p.Contains("DTS:X", StringComparison.OrdinalIgnoreCase) ? "DTS:X"
+                : p.Contains("MA", StringComparison.Ordinal) ? "DTS-HD MA"
+                : p.Contains("DTS-HD", StringComparison.OrdinalIgnoreCase) ? "DTS-HD"
                 : "DTS",
             "aac" => "AAC",
             "flac" => "FLAC",
@@ -182,6 +235,59 @@ public static class StreamFormatter
         };
     }
 
+    /// <summary>A video codec in AIOStreams' vocabulary, or null when it has no word for it.</summary>
+    public static string? EncodeName(string? codec, string fileName) => codec?.ToLowerInvariant() switch
+    {
+        "hevc" or "h265" => "HEVC",
+        "h264" or "avc" => "AVC",
+        "av1" => "AV1",
+        "vc1" => "VC-1",
+        "mpeg4" when fileName.Contains("xvid", StringComparison.OrdinalIgnoreCase) => "XviD",
+        "mpeg4" when fileName.Contains("divx", StringComparison.OrdinalIgnoreCase) => "DivX",
+        "mpeg4" => "MPEG-4",
+        _ => null,
+    };
+
+    /// <summary>An audio track's tags in AIOStreams' vocabulary: the format, then Atmos or DTS:X.</summary>
+    public static IReadOnlyList<string> AudioTags(string? codec, string? profile)
+    {
+        var p = profile ?? string.Empty;
+        var c = codec?.ToLowerInvariant() ?? string.Empty;
+        string? format = c switch
+        {
+            "eac3" => "DD+",
+            "ac3" => "DD",
+            "truehd" => "TrueHD",
+            "dts" => p.Contains("DTS-HD MA", StringComparison.OrdinalIgnoreCase) ? "DTS-HD MA"
+                : p.Contains("DTS-HD", StringComparison.OrdinalIgnoreCase) ? "DTS-HD"
+                : p.Contains("DTS-ES", StringComparison.OrdinalIgnoreCase) ? "DTS-ES"
+                : "DTS",
+            "opus" => "OPUS",
+            "flac" => "FLAC",
+            "aac" => "AAC",
+            _ when c.StartsWith("pcm_", StringComparison.Ordinal) => "PCM",
+            _ => null,
+        };
+
+        var tags = new List<string>();
+        if (format is not null)
+        {
+            tags.Add(format);
+        }
+
+        if (p.Contains("Atmos", StringComparison.OrdinalIgnoreCase))
+        {
+            tags.Add("Atmos");
+        }
+
+        if (p.Contains("DTS:X", StringComparison.OrdinalIgnoreCase))
+        {
+            tags.Add("DTS:X");
+        }
+
+        return tags;
+    }
+
     /// <summary>Channels as 2.0, 5.1, 7.1.</summary>
     public static string? ChannelLayout(int? channels) => channels switch
     {
@@ -189,6 +295,7 @@ public static class StreamFormatter
         1 => "1.0",
         2 => "2.0",
         6 => "5.1",
+        7 => "6.1",
         8 => "7.1",
         var n => n.Value.ToString(CultureInfo.InvariantCulture) + "ch",
     };
@@ -254,16 +361,21 @@ public static class StreamFormatter
             sb.Append("\n🔊 ").AppendJoin(" | ", audio);
         }
 
-        var audioLanguages = LanguageNames(facts.Audio.Select(a => a.Language));
+        var audioLanguages = facts.Audio
+            .Where(a => !IsCommentary(a))
+            .Select(a => TrackLanguage(a.Language, a.Title))
+            .Where(l => l is not null)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         if (audioLanguages.Count > 0)
         {
             sb.Append("\n🌎 ").AppendJoin(" | ", audioLanguages);
         }
 
-        var subtitleLanguages = LanguageNames(facts.SubtitleLanguages);
-        if (subtitleLanguages.Count > 0)
+        var subtitles = facts.Subtitles.Select(SubtitleLabel).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (subtitles.Count > 0)
         {
-            sb.Append("\n💬 ").AppendJoin(" | ", subtitleLanguages);
+            sb.Append("\n💬 ").AppendJoin(" | ", subtitles);
         }
 
         if (HumanSize(facts.Size) is { } size)
@@ -274,13 +386,66 @@ public static class StreamFormatter
         return sb.ToString();
     }
 
-    /// <summary>English language names for ISO 639 codes, deduplicated, unknown codes kept as-is.</summary>
-    public static IReadOnlyList<string> LanguageNames(IEnumerable<string?> codes) =>
-        codes
-            .Where(c => !string.IsNullOrWhiteSpace(c) && !c.Equals("und", StringComparison.OrdinalIgnoreCase))
-            .Select(c => LanguageName(c!))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+    /// <summary>
+    /// A track's language, using its title to tell regional variants apart, because files usually
+    /// tag Brazilian and European Portuguese alike as <c>por</c>. Null for an untagged track.
+    /// </summary>
+    public static string? TrackLanguage(string? code, string? title)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var c = code.Trim().Replace('_', '-').ToLowerInvariant();
+        if (c is "und" or "unk" or "mis" or "mul" or "zxx" or "qaa")
+        {
+            return null;
+        }
+
+        var name = LanguageName(c);
+        var t = title ?? string.Empty;
+        if (name == "Portuguese"
+            && (t.Contains("brazil", StringComparison.OrdinalIgnoreCase) || t.Contains("brasil", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "Portuguese (Brazil)";
+        }
+
+        if (c is "es-419" or "es-mx" or "es-la"
+            || (name == "Spanish"
+                && (t.Contains("latin", StringComparison.OrdinalIgnoreCase) || t.Contains("latam", StringComparison.OrdinalIgnoreCase))))
+        {
+            return "Latino";
+        }
+
+        return name;
+    }
+
+    /// <summary>Whether an audio track is a commentary, which is not a dub of the film.</summary>
+    public static bool IsCommentary(AudioFacts audio) =>
+        audio.Title?.Contains("commentary", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>Whether a subtitle only covers foreign dialogue.</summary>
+    public static bool IsForced(SubtitleFacts subtitle) =>
+        subtitle.IsForced || subtitle.Title?.Contains("forced", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>Whether a subtitle is meant for deaf and hard-of-hearing viewers.</summary>
+    public static bool IsHearingImpaired(SubtitleFacts subtitle)
+    {
+        var title = subtitle.Title ?? string.Empty;
+        return subtitle.IsHearingImpaired
+            || title.Contains("SDH", StringComparison.Ordinal)
+            || title.Contains("hearing", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A subtitle as listed in a description: language, then Forced or SDH.</summary>
+    public static string SubtitleLabel(SubtitleFacts subtitle)
+    {
+        var label = TrackLanguage(subtitle.Language, subtitle.Title) ?? "Unknown";
+        return IsForced(subtitle) ? label + " Forced"
+            : IsHearingImpaired(subtitle) ? label + " SDH"
+            : label;
+    }
 
     /// <summary>The English name of an ISO 639-1/639-2 code, Portuguese (Brazil) for pt-BR.</summary>
     public static string LanguageName(string code)
@@ -328,6 +493,20 @@ public static class StreamFormatter
             "per" => "Persian",
             _ => c,
         };
+    }
+
+    private static Dictionary<string, string> BuildLanguages(params (string Name, string Codes)[] languages)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, codes) in languages)
+        {
+            foreach (var code in codes.Split(' '))
+            {
+                result[code] = name;
+            }
+        }
+
+        return result;
     }
 
     /// <summary>A two-letter-or-three-letter code to the ISO 639-2 code Stremio subtitles use.</summary>

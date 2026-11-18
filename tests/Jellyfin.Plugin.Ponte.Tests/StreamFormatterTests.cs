@@ -31,6 +31,8 @@ public class StreamFormatterTests
     [InlineData("HDR10Plus", 10, "HDR10+,10bit")]
     [InlineData("HDR10", 10, "HDR10,10bit")]
     [InlineData("HLG", 10, "HLG,10bit")]
+    [InlineData("DOVIWithEL", 10, "DV,10bit")]
+    [InlineData("DOVIWithELHDR10Plus", 10, "DV,HDR10+,10bit")]
     [InlineData("SDR", 8, "")]
     [InlineData(null, null, "")]
     public void Visual_tags_use_release_names(string? range, int? bitDepth, string expected)
@@ -45,6 +47,8 @@ public class StreamFormatterTests
     [InlineData("ac3", null, "DD")]
     [InlineData("dts", "DTS-HD MA", "DTS-HD MA")]
     [InlineData("dts", "DTS:X", "DTS:X")]
+    [InlineData("dts", "DTS-HD MA + DTS:X", "DTS:X")]
+    [InlineData("dts", "DTS-HD HRA", "DTS-HD")]
     [InlineData("dts", null, "DTS")]
     [InlineData("aac", "LC", "AAC")]
     public void Audio_codecs_use_release_names(string codec, string? profile, string expected)
@@ -55,6 +59,7 @@ public class StreamFormatterTests
     [Theory]
     [InlineData(2, "2.0")]
     [InlineData(6, "5.1")]
+    [InlineData(7, "6.1")]
     [InlineData(8, "7.1")]
     [InlineData(4, "4ch")]
     public void Channel_layouts(int channels, string expected)
@@ -77,10 +82,29 @@ public class StreamFormatterTests
     [InlineData("pt-BR", "Portuguese (Brazil)")]
     [InlineData("eng", "English")]
     [InlineData("ger", "German")]
+    [InlineData("dan", "Danish")]
+    [InlineData("rum", "Romanian")]
+    [InlineData("nob", "Norwegian")]
     [InlineData("xyz", "xyz")]
     public void Language_names(string code, string expected)
     {
         Assert.Equal(expected, StreamFormatter.LanguageName(code));
+    }
+
+    [Theory]
+    [InlineData("por", "Brazilian", "Portuguese (Brazil)")]
+    [InlineData("por", "Portuguese (Brazil) [Forced]", "Portuguese (Brazil)")]
+    [InlineData("por", "European", "Portuguese")]
+    [InlineData("pob", null, "Portuguese (Brazil)")]
+    [InlineData("pt-br", null, "Portuguese (Brazil)")]
+    [InlineData("spa", "Latin American", "Latino")]
+    [InlineData("es-419", null, "Latino")]
+    [InlineData("spa", "European", "Spanish")]
+    [InlineData("und", "Brazilian", null)]
+    [InlineData(null, null, null)]
+    public void Track_languages_use_the_title_for_variants(string? code, string? title, string? expected)
+    {
+        Assert.Equal(expected, StreamFormatter.TrackLanguage(code, title));
     }
 
     [Theory]
@@ -111,7 +135,16 @@ public class StreamFormatterTests
                 new AudioFacts("truehd", 8, "eng", "TrueHD + Atmos"),
                 new AudioFacts("ac3", 6, "por", null),
             ],
-            SubtitleLanguages = ["por", "eng", "por"],
+            Subtitles =
+            [
+                new SubtitleFacts("por", "Brazilian"),
+                new SubtitleFacts("por", "Brazilian (Forced)", IsForced: true),
+                new SubtitleFacts("por", "European"),
+                new SubtitleFacts("eng", "English (SDH)", IsHearingImpaired: true),
+                new SubtitleFacts("eng"),
+                new SubtitleFacts("por", "Brazilian"),
+                new SubtitleFacts(null),
+            ],
         };
 
         Assert.Equal("Ponte\n2160p", StreamFormatter.Name("Ponte", facts));
@@ -120,7 +153,7 @@ public class StreamFormatterTests
             + "🎞️ HEVC · DV · HDR10 · 10bit\n"
             + "🔊 TrueHD Atmos 7.1 | DD 5.1\n"
             + "🌎 English | Portuguese\n"
-            + "💬 Portuguese | English\n"
+            + "💬 Portuguese (Brazil) | Portuguese (Brazil) Forced | Portuguese | English SDH | English | Unknown\n"
             + "📦 60.00 GB",
             StreamFormatter.Description(facts));
     }
